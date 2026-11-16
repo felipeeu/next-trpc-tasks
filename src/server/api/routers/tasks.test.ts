@@ -111,4 +111,26 @@ test("returns NOT_FOUND when updating a nonexistent task", async () => {
 
   expect(await caller.task.list()).toEqual([]);
 });
+
+test("returns a task by its id", async () => {
+  const created = await caller.task.create({
+    title: "Task to edit",
+    description: "Original description",
+  });
+
+  const task = await caller.task.getById({ id: created.id });
+
+  expect(task).toEqual(created);
+});
+
+test("returns NOT_FOUND when retrieving a nonexistent task", async () => {
+  const result = await caller.task
+    .getById({ id: crypto.randomUUID() })
+    .catch((error: unknown) => error);
+
+  expect(result).toBeInstanceOf(TRPCError);
+  expect(result).toMatchObject({
+    code: "NOT_FOUND",
+  });
+});
 });

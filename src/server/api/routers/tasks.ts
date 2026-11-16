@@ -77,4 +77,17 @@ export const taskRouter = createTRPCRouter({
 
     return task;
   }),
+  getById: publicProcedure.input(taskIdSchema).query(({ input }) => {
+    const { id } = input;
+    const task = tasks.find((task) => task.id === id);
+
+    if (!task) {
+      throw new TRPCError({
+        code: "NOT_FOUND",
+        message: "Tarefa não encontrada.",
+      });
+    }
+
+    return task;
+  }),
 });
