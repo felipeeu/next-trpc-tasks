@@ -24,7 +24,7 @@ export function EditTaskForm({ task }: { task: Task }) {
     },
     onSuccess: async (updated) => {
       utils.task.getById.setData({ id: updated.id }, updated);
-      await utils.task.list.invalidate();
+      await utils.task.invalidate();
 
       setTitle(updated.title);
       setDescription(updated.description ?? "");

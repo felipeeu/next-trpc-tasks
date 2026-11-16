@@ -40,18 +40,18 @@ describe("task router", () => {
     expect(tasks).toContainEqual(task);
   });
 
-test("rejects a whitespace-only title without creating a task", async () => {
-  const result = await caller.task
-    .create({ title: "   " })
-    .catch((error: unknown) => error);
+  test("rejects a whitespace-only title without creating a task", async () => {
+    const result = await caller.task
+      .create({ title: "   " })
+      .catch((error: unknown) => error);
 
-  expect(result).toBeInstanceOf(TRPCError);
-  expect(result).toMatchObject({
-    code: "BAD_REQUEST",
+    expect(result).toBeInstanceOf(TRPCError);
+    expect(result).toMatchObject({
+      code: "BAD_REQUEST",
+    });
+
+    expect(await caller.task.list()).toEqual([]);
   });
-
-  expect(await caller.task.list()).toEqual([]);
-});
 
   test("updates a task while preserving its id and creation date", async () => {
     const original = await caller.task.create({
@@ -95,42 +95,70 @@ test("rejects a whitespace-only title without creating a task", async () => {
     expect(tasks).toEqual([second]);
   });
 
-test("returns NOT_FOUND when updating a nonexistent task", async () => {
-  const result = await caller.task
-    .update({
-      id: crypto.randomUUID(),
-      title: "Updated title",
-    })
-    .catch((error: unknown) => error);
+  test("returns NOT_FOUND when updating a nonexistent task", async () => {
+    const result = await caller.task
+      .update({
+        id: crypto.randomUUID(),
+        title: "Updated title",
+      })
+      .catch((error: unknown) => error);
 
-  expect(result).toBeInstanceOf(TRPCError);
-  expect(result).toMatchObject({
-    code: "NOT_FOUND",
-    message: "Tarefa não encontrada.",
+    expect(result).toBeInstanceOf(TRPCError);
+    expect(result).toMatchObject({
+      code: "NOT_FOUND",
+      message: "Tarefa não encontrada.",
+    });
+
+    expect(await caller.task.list()).toEqual([]);
   });
 
-  expect(await caller.task.list()).toEqual([]);
-});
+  test("returns a task by its id", async () => {
+    const created = await caller.task.create({
+      title: "Task to edit",
+      description: "Original description",
+    });
 
-test("returns a task by its id", async () => {
-  const created = await caller.task.create({
-    title: "Task to edit",
-    description: "Original description",
+    const task = await caller.task.getById({ id: created.id });
+
+    expect(task).toEqual(created);
   });
 
-  const task = await caller.task.getById({ id: created.id });
+  test("returns NOT_FOUND when retrieving a nonexistent task", async () => {
+    const result = await caller.task
+      .getById({ id: crypto.randomUUID() })
+      .catch((error: unknown) => error);
 
-  expect(task).toEqual(created);
-});
-
-test("returns NOT_FOUND when retrieving a nonexistent task", async () => {
-  const result = await caller.task
-    .getById({ id: crypto.randomUUID() })
-    .catch((error: unknown) => error);
-
-  expect(result).toBeInstanceOf(TRPCError);
-  expect(result).toMatchObject({
-    code: "NOT_FOUND",
+    expect(result).toBeInstanceOf(TRPCError);
+    expect(result).toMatchObject({
+      code: "NOT_FOUND",
+    });
   });
-});
+
+  test("loads tasks in pages without repeating items", async () => {
+    const first = await caller.task.create({ title: "First task" });
+    const second = await caller.task.create({ title: "Second task" });
+    const third = await caller.task.create({ title: "Third task" });
+
+    const firstPage = await caller.task.listPaginated({ limit: 2 });
+
+    expect(firstPage.items).toEqual([first, second]);
+    expect(firstPage.nextCursor).toBe(2);
+
+    const secondPage = await caller.task.listPaginated({
+      limit: 2,
+      cursor: firstPage.nextCursor,
+    });
+
+    expect(secondPage.items).toEqual([third]);
+    expect(secondPage.nextCursor).toBeNull();
+  });
+
+  test("returns an empty page when there are no tasks", async () => {
+    const page = await caller.task.listPaginated({ limit: 10 });
+
+    expect(page).toEqual({
+      items: [],
+      nextCursor: null,
+    });
+  });
 });

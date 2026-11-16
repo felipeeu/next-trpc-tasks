@@ -17,7 +17,7 @@ export function CreateTaskForm() {
       setFeedback(null);
     },
     onSuccess: async () => {
-      await utils.task.list.invalidate();
+      await utils.task.invalidate();
 
       setTitle("");
       setDescription("");

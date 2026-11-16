@@ -5,7 +5,7 @@ import { api, HydrateClient } from "~/trpc/server";
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
-  await api.task.list.prefetch();
+  await api.task.listPaginated.prefetchInfinite({ limit: 10 });
 
   return (
     <HydrateClient>

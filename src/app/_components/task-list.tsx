@@ -1,12 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { api } from "~/trpc/react";
 
 export function TaskList() {
-  const [tasks] = api.task.list.useSuspenseQuery();
+  const [data, query] = api.task.listPaginated.useSuspenseInfiniteQuery(
+    { limit: 10 },
+    {
+      getNextPageParam: (lastPage) => lastPage.nextCursor,
+    },
+  );
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
   const utils = api.useUtils();
 
   const [feedback, setFeedback] = useState<{
@@ -19,7 +26,7 @@ export function TaskList() {
       setFeedback(null);
     },
     onSuccess: async () => {
-      await utils.task.list.invalidate();
+      await utils.task.invalidate();
 
       setFeedback({
         type: "success",
@@ -33,6 +40,39 @@ export function TaskList() {
       });
     },
   });
+
+  const tasks = data.pages.flatMap((page) => page.items);
+
+  const {
+    fetchNextPage,
+    hasNextPage,
+    isFetching,
+    isFetchingNextPage,
+    isFetchNextPageError,
+  } = query;
+
+  const canLoadMore =
+    hasNextPage && !isFetching && !isFetchNextPageError && !isPending;
+
+  useEffect(() => {
+    const element = sentinelRef.current;
+
+    if (!element || !canLoadMore) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry?.isIntersecting) {
+          observer.disconnect();
+          void fetchNextPage();
+        }
+      },
+      { rootMargin: "200px" },
+    );
+
+    observer.observe(element);
+
+    return () => observer.disconnect();
+  }, [canLoadMore, fetchNextPage]);
 
   return (
     <div className="space-y-4">
@@ -91,6 +131,36 @@ export function TaskList() {
             </li>
           ))}
         </ul>
+      )}
+      <div ref={sentinelRef} aria-hidden="true" className="h-1" />
+
+      {isFetchingNextPage && (
+        <p role="status" className="text-gray-600">
+          Carregando mais tarefas...
+        </p>
+      )}
+
+      {isFetchNextPageError && (
+        <p role="alert" className="text-red-700">
+          Não foi possível carregar mais tarefas. Tente novamente.
+        </p>
+      )}
+
+      {hasNextPage && (
+        <button
+          type="button"
+          disabled={isFetching || isPending}
+          onClick={() => void fetchNextPage()}
+          className="rounded-lg border px-4 py-2 disabled:opacity-50"
+        >
+          {isFetchNextPageError ? "Tentar novamente" : "Carregar mais"}
+        </button>
+      )}
+
+      {!hasNextPage && tasks.length > 0 && (
+        <p className="text-sm text-gray-500">
+          Todas as tarefas foram carregadas.
+        </p>
       )}
     </div>
   );

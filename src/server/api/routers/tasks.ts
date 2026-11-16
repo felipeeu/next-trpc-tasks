@@ -35,6 +35,11 @@ const updateTaskSchema = taskIdSchema.extend(taskFields);
 
 const deleteTaskSchema = taskIdSchema;
 
+const listPaginatedSchema = z.object({
+  limit: z.number().int().min(1).max(50).default(10),
+  cursor: z.number().int().min(0).nullish(),
+});
+
 export const taskRouter = createTRPCRouter({
   list: publicProcedure.query(() => store.tasks),
   create: publicProcedure.input(createTaskSchema).mutation(({ input }) => {
@@ -100,4 +105,19 @@ export const taskRouter = createTRPCRouter({
 
     return task;
   }),
+
+  listPaginated: publicProcedure
+    .input(listPaginatedSchema)
+    .query(({ input }) => {
+      const { limit } = input;
+      const start = input.cursor ?? 0;
+
+      const items = store.tasks.slice(start, start + limit);
+      const nextPosition = start + items.length;
+
+      return {
+        items,
+        nextCursor: nextPosition < store.tasks.length ? nextPosition : null,
+      };
+    }),
 });
