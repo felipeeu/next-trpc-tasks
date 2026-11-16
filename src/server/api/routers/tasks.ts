@@ -10,7 +10,17 @@ interface Task {
   createdAt: Date;
 }
 
-let tasks: Task[] = [];
+type TaskStore = {
+  tasks: Task[];
+};
+
+const globalForTasks = globalThis as typeof globalThis & {
+  __nextTrpcTaskStore?: TaskStore;
+};
+
+const store = (globalForTasks.__nextTrpcTaskStore ??= {
+  tasks: [],
+});
 
 const taskFields = {
   title: z.string().trim().min(1, "Title is required"),
@@ -26,7 +36,7 @@ const updateTaskSchema = taskIdSchema.extend(taskFields);
 const deleteTaskSchema = taskIdSchema;
 
 export const taskRouter = createTRPCRouter({
-  list: publicProcedure.query(() => tasks),
+  list: publicProcedure.query(() => store.tasks),
   create: publicProcedure.input(createTaskSchema).mutation(({ input }) => {
     const { title, description } = input;
     const newTask: Task = {
@@ -36,14 +46,14 @@ export const taskRouter = createTRPCRouter({
       createdAt: new Date(),
     };
 
-    tasks = [...tasks, newTask];
+    store.tasks = [...store.tasks, newTask];
 
     return newTask;
   }),
   update: publicProcedure.input(updateTaskSchema).mutation(({ input }) => {
     const { id, title, description } = input;
-    const index = tasks.findIndex((task) => task.id === id);
-    const task = tasks[index];
+    const index = store.tasks.findIndex((task) => task.id === id);
+    const task = store.tasks[index];
 
     if (!task) {
       throw new TRPCError({
@@ -58,13 +68,13 @@ export const taskRouter = createTRPCRouter({
       description,
     };
 
-    tasks[index] = updatedTask;
+    store.tasks[index] = updatedTask;
 
     return updatedTask;
   }),
   delete: publicProcedure.input(deleteTaskSchema).mutation(({ input }) => {
     const { id } = input;
-    const task = tasks.find((task) => task.id === id);
+    const task = store.tasks.find((task) => task.id === id);
 
     if (!task) {
       throw new TRPCError({
@@ -73,13 +83,13 @@ export const taskRouter = createTRPCRouter({
       });
     }
 
-    tasks = tasks.filter((task) => task.id !== id);
+    store.tasks = store.tasks.filter((task) => task.id !== id);
 
     return task;
   }),
   getById: publicProcedure.input(taskIdSchema).query(({ input }) => {
     const { id } = input;
-    const task = tasks.find((task) => task.id === id);
+    const task = store.tasks.find((task) => task.id === id);
 
     if (!task) {
       throw new TRPCError({
