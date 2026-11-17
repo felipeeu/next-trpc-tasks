@@ -18,6 +18,8 @@ const globalForTasks = globalThis as typeof globalThis & {
   __nextTrpcTaskStore?: TaskStore;
 };
 
+// Mantém a mesma lista entre recarregamentos do servidor em desenvolvimento.
+// A store continua restrita ao processo atual e é perdida quando ele reinicia.
 const store = (globalForTasks.__nextTrpcTaskStore ??= {
   tasks: [],
 });
@@ -110,6 +112,8 @@ export const taskRouter = createTRPCRouter({
     .input(listPaginatedSchema)
     .query(({ input }) => {
       const { limit } = input;
+      // Um offset numérico mantém a paginação simples para a store em memória.
+   
       const start = input.cursor ?? 0;
 
       const items = store.tasks.slice(start, start + limit);
